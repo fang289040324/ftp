@@ -1,11 +1,12 @@
 package com.navinfo.test.FtpTest;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.SocketException;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.net.ftp.FTPClient;
@@ -63,10 +64,21 @@ public class FtpTest {
 		
 		try {
 			ftp.ftpLogin();
-			ftp.downloadFile();
-			ftp.disconnect();
+//			ftp.downloadFile();
+//			ftp.downloadBPFile();
+			
+			for(String name : ftp.getFTPFileList()){
+				System.out.println(name);
+			}
+			
 		} catch (Exception e) {
 			e.printStackTrace();
+		} finally {
+			try {
+				ftp.disconnect();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -111,11 +123,9 @@ public class FtpTest {
 		}
 
 		// 转移到FTP服务器目录
-		ftp.changeWorkingDirectory(new String(remotePath.getBytes("utf-8"), "iso-8859-1"));
+		return ftp.changeWorkingDirectory(new String(remotePath.getBytes("utf-8"), "iso-8859-1"));
 
 //		ftp.deleteFile(fileName);
-
-		return true;
 	}
 
 	/**
@@ -134,54 +144,86 @@ public class FtpTest {
 	 * Description: 从FTP服务器下载文件，支持下载文件夹
 	 * 
 	 * @return
+	 * @throws IOException 
 	 */
-	public boolean downloadFile() {
+	public boolean downloadFile() throws IOException {
 		boolean result = false;
-		try {
-			FTPFile[] fs = ftp.listFiles(".", new FTPFileFilter() {
-				@Override
-				public boolean accept(FTPFile file) {
-					return file.getName().equals(fileName);
-				}
-			});
-			
-			File localFile = new File(localPath + "/" + fs[0].getName());
-			OutputStream os = new FileOutputStream(localFile);
-			ftp.retrieveFile(fs[0].getName(), os);
-			os.close();
+		FTPFile fs = getFile();
 
-			result = true;
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (ftp.isConnected()) {
-				try {
-					ftp.disconnect();
-				} catch (IOException ioe) {
-				}
-			}
-		}
+		File localFile = new File(localPath + "/" + fs.getName());
+		OutputStream out = new FileOutputStream(localFile);
+		result = ftp.retrieveFile(fs.getName(), out);
+		out.close();
+
 		return result;
+	}
+
+	/**
+	 * @return
+	 * @throws IOException 
+	 */
+	private FTPFile getFile() throws IOException {
+		FTPFile[] fs = ftp.listFiles(".", new FTPFileFilter() {
+			@Override
+			public boolean accept(FTPFile file) {
+				return file.getName().equals(fileName);
+			}
+		});
+		return fs[0];
 	}
 
 	/**
 	 * Description: 从FTP服务器下载文件(断点)
 	 * 
 	 * @return
+	 * @throws IOException 
 	 */
-	public static boolean downloadBPFile() {
-
-		return true;
+	public boolean downloadBPFile() throws IOException {
+		boolean result = false;  
+		OutputStream out = null;
+//		ftp.enterLocalPassiveMode();  
+//		ftp.setFileType(FTP.BINARY_FILE_TYPE);  
+		
+        File f = new File(localPath + "/" + fileName); 
+        
+        FTPFile files = getFile();
+        
+        long lRemoteSize = files.getSize();  
+        if (f.exists()) {
+            out = new FileOutputStream(f, true);  
+            if (f.length() >= lRemoteSize) { 
+                System.out.println(fileName + "文件已经下载完毕");  
+			} else {
+				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 1.0 / lRemoteSize) + "%");  
+				ftp.setRestartOffset(f.length());
+				result = ftp.retrieveFile(fileName, out);  
+			}
+        } else {
+            out = new FileOutputStream(f); 
+            result = ftp.retrieveFile(fileName, out);  
+        } 
+        
+        out.close();  
+        return result;  
 	}
 
 	/**
 	 * Description：获取ftp当前路径的文件列表
 	 * 
 	 * @return
+	 * @throws IOException 
 	 */
-	public List<String> getFTPFileList() {
-
-		return null;
+	public List<String> getFTPFileList() throws IOException {
+		
+		FTPFile[] files = ftp.listFiles();
+		
+		List<String> nameList = new ArrayList<String>();
+		
+		for(FTPFile file : files){
+			nameList.add(file.getName());
+		}
+		
+		return nameList;
 	}
 	
 	/**
