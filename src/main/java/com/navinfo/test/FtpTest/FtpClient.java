@@ -64,9 +64,9 @@ public class FtpClient {
 			
 //			ftpClient.downloadBPFile("D:\\", "test01.txt"); // 下载文件
 			
-//			for(String name : ftpClient.getFTPFileList()){  // 显示ftp当前目录下的文件列表
-//				System.out.println(name);
-//			}
+			for(String name : ftpClient.getFTPFileList()){  // 显示ftp当前目录下的文件列表
+				System.out.println(name);
+			}
 			
 			ftpClient.downloadDir("D:\\"); // 下载文件夹
 			
@@ -190,7 +190,6 @@ public class FtpClient {
 		if(!localDir.exists())
 			localDir.mkdirs();
 		File localFile = new File(localDir, "/" + ftpFile.getName());
-		ftp.changeWorkingDirectory(new String(remotePath.getBytes("utf-8"), "iso-8859-1"));
 		
 		long lRemoteSize = ftpFile.getSize(); 
 		if (localFile.exists()) {
@@ -311,7 +310,7 @@ public class FtpClient {
 	 */
 	private void downloadDirORFile(String remotePath, FTPFile[] ftpFiles) throws IOException {
 		for(FTPFile ftpFile : ftpFiles){
-			
+			ftp.changeWorkingDirectory(new String(remotePath.getBytes("utf-8"), "iso-8859-1"));
 			if(ftpFile.isDirectory()){
 				downloadDirORFile((remotePath + "/" + ftpFile.getName()), ftp.listFiles(ftpFile.getName()));
 			}else if(ftpFile.isFile()){
