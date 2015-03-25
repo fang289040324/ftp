@@ -4,11 +4,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.SocketException;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
 import org.apache.commons.net.ftp.FTPClientConfig;
 import org.apache.commons.net.ftp.FTPFile;
@@ -58,26 +58,22 @@ public class FtpClient {
 		ftpClient.setUsername("test");
 		ftpClient.setPassword("123456");
 		ftpClient.setRemotePath("/");
-		ftpClient.setFileName("test.txt");
-		ftpClient.setLocalPath("D:\\");
 		
 		try {
 			ftpClient.open();
-//			ftpClient.downloadFile();
-//			ftpClient.downloadBPFile();
 			
-			for(String name : ftpClient.getFTPFileList()){
-				System.out.println(name);
-			}
+//			ftpClient.downloadBPFile("D:\\", "test01.txt"); // 下载文件
+			
+//			for(String name : ftpClient.getFTPFileList()){  // 显示ftp当前目录下的文件列表
+//				System.out.println(name);
+//			}
+			
+			ftpClient.downloadDir("D:\\"); // 下载文件夹
 			
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			try {
-				ftpClient.disconnect();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+			ftpClient.disconnect();
 		}
 	}
 	
@@ -159,13 +155,24 @@ public class FtpClient {
 	 * 
 	 * @throws IOException
 	 */
-	public void disconnect() throws IOException {
+	public void disconnect() {
 		if (ftp.isConnected()) {
-			if(ftp.logout()){
-				System.out.println("用户：" + username + "退出！！");
+			try{
+				if((null != username && !username.isEmpty()) && ftp.logout()){
+					System.out.println("用户：" + username + "已退出！！");
+				}
+			}catch(IOException e){
+				e.printStackTrace();
+				System.out.println("用户：" + username + "退出失败！！");
+			} finally {
+				try {
+					ftp.disconnect();
+					System.out.println("ftp连接关闭！！");
+				} catch (IOException e) {
+					e.printStackTrace();
+					System.out.println("ftp连接关闭失败！！");
+				}
 			}
-			ftp.disconnect();
-			System.out.println("ftp连接关闭！！");
 		}
 	}
 
@@ -175,14 +182,34 @@ public class FtpClient {
 	 * @return
 	 * @throws IOException 
 	 */
-	public boolean downloadFile() throws IOException {
+	private boolean downloadFile(String remotePath, FTPFile ftpFile) throws IOException {
 		boolean result = false;
-		FTPFile fs = getFile();
-
-		File localFile = new File(localPath + "/" + fs.getName());
-		OutputStream out = new FileOutputStream(localFile);
-		result = ftp.retrieveFile(fs.getName(), out);
-		out.close();
+		OutputStream out = null;
+		
+		File localDir = new File(localPath + "/" + remotePath);
+		if(!localDir.exists())
+			localDir.mkdirs();
+		File localFile = new File(localDir, "/" + ftpFile.getName());
+		ftp.changeWorkingDirectory(new String(remotePath.getBytes("utf-8"), "iso-8859-1"));
+		
+		long lRemoteSize = ftpFile.getSize(); 
+		if (localFile.exists()) {
+            if (localFile.length() >= lRemoteSize) { 
+                System.out.println(localFile.getName() + "文件已经下载完毕");  
+			} else {
+				out = new FileOutputStream(localFile, true);  
+				System.out.println(localFile.getName() + "文件已下载: " + new DecimalFormat("#.##").format(localFile.length() * 100.0 / lRemoteSize) + "%");  
+				ftp.setRestartOffset(localFile.length());
+				result = ftp.retrieveFile(ftpFile.getName(), out);  
+			}
+        } else {
+            out = new FileOutputStream(localFile); 
+            result = ftp.retrieveFile(ftpFile.getName(), out);  
+        } 
+		
+		if(out != null){
+			out.close();
+		}
 
 		return result;
 	}
@@ -208,33 +235,105 @@ public class FtpClient {
 	 * @return
 	 * @throws IOException 
 	 */
-	public boolean downloadBPFile() throws IOException {
+	private boolean downloadBPFile() throws IOException {
 		boolean result = false;  
 		OutputStream out = null;
-//		ftp.enterLocalPassiveMode();  
-//		ftp.setFileType(FTP.BINARY_FILE_TYPE);  
+		ftp.enterLocalPassiveMode();  
+		ftp.setFileType(FTP.BINARY_FILE_TYPE);  
 		
-		FTPFile files = getFile();
+		FTPFile file = getFile();
 		
-        File f = new File(localPath + "/" + files.getName()); 
+//      File f = new File(localPath + "/" + file.getName()); 
+		File localDir = new File(localPath + "/" + remotePath);
+		if(!localDir.exists())
+			localDir.mkdirs();
+		File f = new File(localDir, "/" + file.getName());
         
-        long lRemoteSize = files.getSize();  
+        long lRemoteSize = file.getSize();  
         if (f.exists()) {
-            out = new FileOutputStream(f, true);  
             if (f.length() >= lRemoteSize) { 
                 System.out.println(fileName + "文件已经下载完毕");  
 			} else {
-				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 1.0 / lRemoteSize) + "%");  
+				out = new FileOutputStream(f, true);  
+				System.out.println(f.length() + " " + lRemoteSize);
+				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 100.0 / lRemoteSize) + "%");  
 				ftp.setRestartOffset(f.length());
-				result = ftp.retrieveFile(fileName, out);  
+				result = ftp.retrieveFile(file.getName(), out);  
 			}
         } else {
             out = new FileOutputStream(f); 
-            result = ftp.retrieveFile(fileName, out);  
+            result = ftp.retrieveFile(file.getName(), out);  
         } 
         
         out.close();  
         return result;  
+	}
+	
+	/**
+	 * Description: 从FTP服务器下载文件(断点)
+	 * 
+	 * @param remotePath 远程ftp目录
+	 * @param localPath 本地保存目录
+	 * @param fileName 要下载的文件名称
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean downloadBPFile(String localPath, String fileName) throws IOException {
+		this.setFileName(fileName);
+		this.setLocalPath(localPath);
+		return downloadBPFile();
+		
+	}
+	
+	/**
+	 * Description：下载ftp文件夹
+	 * 
+	 * @return
+	 * @throws IOException 
+	 */
+	private boolean downloadDir() throws IOException{
+		
+		File file = new File(remotePath);
+		if(!file.exists()){
+			file.mkdirs();
+		}
+		
+		FTPFile[] ftpFiles = ftp.listFiles(".");
+		
+		downloadDirORFile(remotePath, ftpFiles);
+		
+		return true;
+	}
+
+	/**
+	 * @param ftpFiles
+	 * @throws IOException 
+	 */
+	private void downloadDirORFile(String remotePath, FTPFile[] ftpFiles) throws IOException {
+		for(FTPFile ftpFile : ftpFiles){
+			
+			if(ftpFile.isDirectory()){
+				downloadDirORFile((remotePath + "/" + ftpFile.getName()), ftp.listFiles(ftpFile.getName()));
+			}else if(ftpFile.isFile()){
+				downloadFile(remotePath, ftpFile);
+			}
+			
+		}
+	}
+	
+	/**
+	 * Description：下载ftp文件夹
+	 * 
+	 * @param remotePath 远程ftp目录
+	 * @param localPath 本地保存目录
+	 * @return
+	 * @throws IOException
+	 */
+	public boolean downloadDir(String localPath) throws IOException{
+		
+		this.setLocalPath(localPath);
+		return downloadDir();
+		
 	}
 
 	/**
@@ -250,7 +349,7 @@ public class FtpClient {
 		List<String> nameList = new ArrayList<String>();
 		
 		for(FTPFile file : files){
-			nameList.add(file.getName());
+			nameList.add(file.getRawListing());
 		}
 		
 		return nameList;
@@ -262,6 +361,7 @@ public class FtpClient {
 	 * @return
 	 */
 	public int getProgressRate(){
+		//TODO 显示任务进度
 		return 0;
 	}
 	
