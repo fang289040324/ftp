@@ -15,7 +15,7 @@ import org.apache.commons.net.ftp.FTPFile;
 import org.apache.commons.net.ftp.FTPFileFilter;
 import org.apache.commons.net.ftp.FTPReply;
 
-public class FtpTest {
+public class FtpClient {
 	/**
 	 * FTP服务器客户端
 	 */
@@ -50,24 +50,23 @@ public class FtpTest {
 	private String localPath = null;
 
 	public static void main(String[] args) {
-		// downloadFile("192.168.4.226", 21, "test", "123456", "/",
-		// "test01.txt", "D:\\");
-		FtpTest ftp = new FtpTest();
 		
-		ftp.setUrl("localhost");
-		ftp.setPort(21);
-		ftp.setUsername("test");
-		ftp.setPassword("123456");
-		ftp.setRemotePath("/");
-		ftp.setFileName("test.txt");
-		ftp.setLocalPath("D:\\");
+		FtpClient ftpClient = new FtpClient();
+		
+		ftpClient.setUrl("192.168.4.226");
+		ftpClient.setPort(21);
+		ftpClient.setUsername("test");
+		ftpClient.setPassword("123456");
+		ftpClient.setRemotePath("/");
+		ftpClient.setFileName("test.txt");
+		ftpClient.setLocalPath("D:\\");
 		
 		try {
-			ftp.ftpLogin();
-//			ftp.downloadFile();
-//			ftp.downloadBPFile();
+			ftpClient.open();
+//			ftpClient.downloadFile();
+//			ftpClient.downloadBPFile();
 			
-			for(String name : ftp.getFTPFileList()){
+			for(String name : ftpClient.getFTPFileList()){
 				System.out.println(name);
 			}
 			
@@ -75,14 +74,30 @@ public class FtpTest {
 			e.printStackTrace();
 		} finally {
 			try {
-				ftp.disconnect();
+				ftpClient.disconnect();
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
 		}
 	}
-
-	public boolean ftpLogin() throws SocketException, IOException {
+	
+	/**
+	 * 连接ftp并登陆
+	 * 
+	 * @throws IOException
+	 */
+	public void open() throws IOException{
+		connect();
+		ftpLogin();
+	}
+	
+	/**
+	 * ftp连接
+	 * 
+	 * @throws IOException
+	 */
+	public void connect() throws IOException{
+		
 		/*
 		 * jdk7+的BUG 在安装有 IPv6 和 IPv4 的计算机上，会使用一种 IPv6 模拟的 IPv4， 而 windows
 		 * 防火墙会把这种模拟的 IPv4 数据挡住。 所以要配置系统参数优先用IP4
@@ -94,15 +109,26 @@ public class FtpTest {
 		FTPClientConfig conf = new FTPClientConfig(FTPClientConfig.SYST_NT);
 		conf.setServerLanguageCode("zh");
 		
+		// ftp链接超时
+		ftp.setDefaultTimeout(5000);
+		
 		// 如果采用默认端口，可以使用ftp.connect(url)的方式直接连接FTP服务器
 		ftp.connect(url, port);
 
 		System.out.println("ftp连接成功！！");
-
+		
+	}
+	
+	/**
+	 * ftp登陆
+	 * 
+	 * @throws IOException
+	 */
+	public boolean ftpLogin() throws IOException {
 		// 登录
-		ftp.login(username, password);
-
-		System.out.println("用户名：" + username + "登陆成功！！");
+		if(ftp.login(username, password)){
+			System.out.println("用户：" + username + "登陆成功！！");
+		}
 
 		// 设置被动模式
 		// ftp.enterLocalPassiveMode();
@@ -135,13 +161,16 @@ public class FtpTest {
 	 */
 	public void disconnect() throws IOException {
 		if (ftp.isConnected()) {
-			ftp.logout();
+			if(ftp.logout()){
+				System.out.println("用户：" + username + "退出！！");
+			}
 			ftp.disconnect();
+			System.out.println("ftp连接关闭！！");
 		}
 	}
 
 	/**
-	 * Description: 从FTP服务器下载文件，支持下载文件夹
+	 * Description: 从FTP服务器下载文件
 	 * 
 	 * @return
 	 * @throws IOException 
@@ -159,6 +188,7 @@ public class FtpTest {
 	}
 
 	/**
+	 * Description: 获取当前要下载的ftp文件
 	 * @return
 	 * @throws IOException 
 	 */
@@ -184,9 +214,9 @@ public class FtpTest {
 //		ftp.enterLocalPassiveMode();  
 //		ftp.setFileType(FTP.BINARY_FILE_TYPE);  
 		
-        File f = new File(localPath + "/" + fileName); 
-        
-        FTPFile files = getFile();
+		FTPFile files = getFile();
+		
+        File f = new File(localPath + "/" + files.getName()); 
         
         long lRemoteSize = files.getSize();  
         if (f.exists()) {
