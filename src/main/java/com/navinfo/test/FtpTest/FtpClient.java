@@ -48,6 +48,8 @@ public class FtpClient {
 	 * 下载后保存到本地的路径
 	 */
 	private String localPath = null;
+	
+	private boolean isDisplayDownloadRate = false;
 
 	public static void main(String[] args) {
 		
@@ -59,6 +61,7 @@ public class FtpClient {
 		ftpClient.setUsername("test");
 		ftpClient.setPassword("123456");
 		ftpClient.setRemotePath("/333");
+		ftpClient.setDisplayDownloadRate(true);
 		
 		try {
 			ftpClient.open();
@@ -186,6 +189,8 @@ public class FtpClient {
 	private boolean downloadFile(String remotePath, FTPFile ftpFile) throws IOException {
 		boolean result = false;
 		OutputStream out = null;
+		ftp.enterLocalPassiveMode();  
+		ftp.setFileType(FTP.BINARY_FILE_TYPE);  
 		
 		File localDir = new File(localPath + "/" + remotePath);
 		if(!localDir.exists())
@@ -198,7 +203,6 @@ public class FtpClient {
                 System.out.println(localFile.getName() + "文件已经下载完毕");  
 			} else {
 				out = new FileOutputStream(localFile, true);  
-//				System.out.println(localFile.getName() + "文件已下载: " + new DecimalFormat("#.##").format(localFile.length() * 100.0 / lRemoteSize) + "%");  
 				
 				showDownloadRate(localFile, lRemoteSize);
 				
@@ -247,7 +251,6 @@ public class FtpClient {
 		
 		FTPFile file = getFile();
 		
-//      File f = new File(localPath + "/" + file.getName()); 
 		File localDir = new File(localPath + "/" + remotePath);
 		if(!localDir.exists())
 			localDir.mkdirs();
@@ -259,7 +262,6 @@ public class FtpClient {
                 System.out.println(fileName + "文件已经下载完毕");  
 			} else {
 				out = new FileOutputStream(f, true);  
-//				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 100.0 / lRemoteSize) + "%");  
 				
 				showDownloadRate(f, lRemoteSize);
 				
@@ -369,33 +371,42 @@ public class FtpClient {
 	 * @return
 	 */
 	public void showDownloadRate(final File f, final long lRemoteSize){
-		
-		new Thread(new Runnable(){
+		if(isDisplayDownloadRate){
+			new Thread(new Runnable(){
 
-			@Override
-			public void run() {
-				
-				while(true){
-					double p = f.length() * 100.0 / lRemoteSize;
-					if(p < 100){
-						System.out.println("文件已下载: " + new DecimalFormat("#.##").format(p) + "%");  
-					}else{
-						break;
+				@Override
+				public void run() {
+					double p = 0;
+					while(true){
+						p = f.length() * 100.0 / lRemoteSize;
+						if(p < 100){
+							displayWay(p);
+						}else{
+							break;
+						}
+						try {
+							Thread.sleep(200);
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+						}
 					}
-					try {
-						Thread.sleep(200);
-					} catch (InterruptedException e) {
-						e.printStackTrace();
-					}
+					displayWay(p); 
+					
 				}
-				System.out.println("文件已下载: 100%"); 
-				
-			}
-			
-		}).start();
+
+			}).start();
+
+		}
 	}
 	
-	
+	/**
+	 * Description：提取进度展示逻辑，方便展示方式更变修改
+	 * 
+	 * @return
+	 */
+	private void displayWay(double p) {
+		System.out.println("文件已下载: " + new DecimalFormat("#.##").format(p) + "%");
+	}
 
 	public FTPClient getFtp() {
 		return ftp;
@@ -455,6 +466,14 @@ public class FtpClient {
 
 	public void setLocalPath(String localPath) {
 		this.localPath = localPath;
+	}
+	
+	public boolean isDisplayDownloadRate() {
+		return isDisplayDownloadRate;
+	}
+
+	public void setDisplayDownloadRate(boolean isDisplayDownloadRate) {
+		this.isDisplayDownloadRate = isDisplayDownloadRate;
 	}
 
 }
