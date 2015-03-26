@@ -53,7 +53,8 @@ public class FtpClient {
 		
 		FtpClient ftpClient = new FtpClient();
 		
-		ftpClient.setUrl("192.168.4.226");
+//		ftpClient.setUrl("192.168.4.226");
+		ftpClient.setUrl("localhost");
 		ftpClient.setPort(21);
 		ftpClient.setUsername("test");
 		ftpClient.setPassword("123456");
@@ -62,11 +63,11 @@ public class FtpClient {
 		try {
 			ftpClient.open();
 			
-//			ftpClient.downloadBPFile("D:\\", "test01.txt"); // 下载文件
+//			ftpClient.downloadBPFile("D:\\", "123.ISO"); // 下载文件
 			
-			for(String name : ftpClient.getFTPFileList()){  // 显示ftp当前目录下的文件列表
-				System.out.println(name);
-			}
+//			for(String name : ftpClient.getFTPFileList()){  // 显示ftp当前目录下的文件列表
+//				System.out.println(name);
+//			}
 			
 			ftpClient.downloadDir("D:\\"); // 下载文件夹
 			
@@ -189,19 +190,23 @@ public class FtpClient {
 		File localDir = new File(localPath + "/" + remotePath);
 		if(!localDir.exists())
 			localDir.mkdirs();
-		File localFile = new File(localDir, "/" + ftpFile.getName());
+		final File localFile = new File(localDir, "/" + ftpFile.getName());
 		
-		long lRemoteSize = ftpFile.getSize(); 
+		final long lRemoteSize = ftpFile.getSize(); 
 		if (localFile.exists()) {
             if (localFile.length() >= lRemoteSize) { 
                 System.out.println(localFile.getName() + "文件已经下载完毕");  
 			} else {
 				out = new FileOutputStream(localFile, true);  
-				System.out.println(localFile.getName() + "文件已下载: " + new DecimalFormat("#.##").format(localFile.length() * 100.0 / lRemoteSize) + "%");  
+//				System.out.println(localFile.getName() + "文件已下载: " + new DecimalFormat("#.##").format(localFile.length() * 100.0 / lRemoteSize) + "%");  
+				
+				showDownloadRate(localFile, lRemoteSize);
+				
 				ftp.setRestartOffset(localFile.length());
 				result = ftp.retrieveFile(ftpFile.getName(), out);  
 			}
         } else {
+        	showDownloadRate(localFile, lRemoteSize);
             out = new FileOutputStream(localFile); 
             result = ftp.retrieveFile(ftpFile.getName(), out);  
         } 
@@ -246,25 +251,30 @@ public class FtpClient {
 		File localDir = new File(localPath + "/" + remotePath);
 		if(!localDir.exists())
 			localDir.mkdirs();
-		File f = new File(localDir, "/" + file.getName());
+		final File f = new File(localDir, "/" + file.getName());
         
-        long lRemoteSize = file.getSize();  
+        final long lRemoteSize = file.getSize();  
         if (f.exists()) {
             if (f.length() >= lRemoteSize) { 
                 System.out.println(fileName + "文件已经下载完毕");  
 			} else {
 				out = new FileOutputStream(f, true);  
-				System.out.println(f.length() + " " + lRemoteSize);
-				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 100.0 / lRemoteSize) + "%");  
+//				System.out.println("文件已下载: " + new DecimalFormat("#.##").format(f.length() * 100.0 / lRemoteSize) + "%");  
+				
+				showDownloadRate(f, lRemoteSize);
+				
 				ftp.setRestartOffset(f.length());
 				result = ftp.retrieveFile(file.getName(), out);  
 			}
         } else {
+        	showDownloadRate(f, lRemoteSize);
             out = new FileOutputStream(f); 
             result = ftp.retrieveFile(file.getName(), out);  
         } 
         
-        out.close();  
+        if(null != out){
+        	out.close();  
+        }
         return result;  
 	}
 	
@@ -281,7 +291,6 @@ public class FtpClient {
 		this.setFileName(fileName);
 		this.setLocalPath(localPath);
 		return downloadBPFile();
-		
 	}
 	
 	/**
@@ -359,9 +368,30 @@ public class FtpClient {
 	 * 
 	 * @return
 	 */
-	public int getProgressRate(){
-		//TODO 显示任务进度
-		return 0;
+	public void showDownloadRate(final File f, final long lRemoteSize){
+		
+		new Thread(new Runnable(){
+
+			@Override
+			public void run() {
+				
+				while(true){
+					double p = f.length() * 100.0 / lRemoteSize;
+					if(p < 100){
+						System.out.println("文件已下载: " + new DecimalFormat("#.##").format(p) + "%");  
+					}else{
+						break;
+					}
+					try {
+						Thread.sleep(2000);
+					} catch (InterruptedException e) {
+						e.printStackTrace();
+					}
+				}
+				
+			}
+			
+		}).start();
 	}
 	
 	
