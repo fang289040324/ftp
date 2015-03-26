@@ -53,12 +53,12 @@ public class FtpClient {
 		
 		FtpClient ftpClient = new FtpClient();
 		
-//		ftpClient.setUrl("192.168.4.226");
-		ftpClient.setUrl("localhost");
+		ftpClient.setUrl("192.168.4.226");
+//		ftpClient.setUrl("localhost");
 		ftpClient.setPort(21);
 		ftpClient.setUsername("test");
 		ftpClient.setPassword("123456");
-		ftpClient.setRemotePath("/");
+		ftpClient.setRemotePath("/333");
 		
 		try {
 			ftpClient.open();
@@ -383,11 +383,12 @@ public class FtpClient {
 						break;
 					}
 					try {
-						Thread.sleep(2000);
+						Thread.sleep(200);
 					} catch (InterruptedException e) {
 						e.printStackTrace();
 					}
 				}
+				System.out.println("文件已下载: 100%"); 
 				
 			}
 			
